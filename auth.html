@@ -14,6 +14,7 @@
 <body>
     <H1>认证</H1>
     <input type="file" id="svkSelector">
+    <img id="avatar">
     <H6 id="status"></H6>
     <script>
         //https://segmentfault.com/a/1190000022913676
@@ -72,11 +73,13 @@
                 delete userAgent.brands;
                 verify.browser = deepEqual(userAgent, parsedSVK.browser);
                 status.innerHTML += verify.browser ? "<br>浏览器验证符合" : "<br>浏览器验证不通过";
+                status.innerHTML += "<br>Steam用户名:" + parsedSVK.username;
+                document.getElementById("avatar").src = "https://steamapi.qinlili.bid/avatar?id=" + parsedSVK.userid;
                 let gameids = [];
                 parsedSVK.games.forEach(element => {
                     gameids.push(element.appid);
                 });
-                status.innerHTML += "<br>" + "已拥有游戏:" + gameids.toString()
+                status.innerHTML += "<br>已拥有游戏:" + gameids.toString()
             }
             reader.readAsArrayBuffer(file);
         })
