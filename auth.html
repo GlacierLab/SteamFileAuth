@@ -52,15 +52,16 @@
                 vendor: gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL),
                 renderer: gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL),
             } : false;
-        }
+        };
+        let status = document.getElementById("status");
         document.getElementById("svkSelector").addEventListener("change", (e) => {
-            let status = document.getElementById("status");
             let target = e.target || e.srcElement;
             let file = target.files[0];
             var reader = new FileReader();
             reader.onloadend = async (data) => {
                 let res = data.target || data.srcElement;
-                const parsedSVK = JSON.parse(new TextDecoder().decode(pako.ungzip(res.result)));
+                let SVKtext = new TextDecoder().decode(pako.ungzip(res.result));
+                const parsedSVK = JSON.parse(SVKtext);
                 //console.log(parsedSVK);
                 let verify = {};
                 let day = (Date.now() - parsedSVK.time) / 86400000;
@@ -74,14 +75,41 @@
                 verify.browser = deepEqual(userAgent, parsedSVK.browser);
                 status.innerHTML += verify.browser ? "<br>浏览器验证符合" : "<br>浏览器验证不通过";
                 status.innerHTML += "<br>Steam用户名:" + parsedSVK.username;
+                if (verify.time && verify.browser && verify.GPU) {
+                    localStorage.cachedSVK = SVKtext;
+                }
                 document.getElementById("avatar").src = "https://steamapi.qinlili.bid/avatar?id=" + parsedSVK.userid;
                 let gameids = [];
                 parsedSVK.games.forEach(element => {
                     gameids.push(element.appid);
                 });
-                status.innerHTML += "<br>已拥有游戏:" + gameids.toString()
+                status.innerHTML += "<br>已拥有游戏:" + gameids.toString();
             }
             reader.readAsArrayBuffer(file);
-        })
+        });
+        (async () => {
+            if (localStorage.cachedSVK) {
+                let cachedSVK = JSON.parse(localStorage.cachedSVK);
+                let day = (Date.now() - cachedSVK.time) / 86400000;
+                let verify = {}
+                status.innerHTML += "检测到缓存的令牌...";
+                verify.time = (day < 14);
+                status.innerHTML += verify.time ? "<br>文件有效" : "<br>文件过期";
+                let currentGPU = getVideoCardInfo();
+                verify.GPU = deepEqual(currentGPU, cachedSVK.GPUinfo);
+                status.innerHTML += verify.GPU ? "<br>GPU验证符合" : "<br>GPU验证不通过";
+                let userAgent = await navigator.userAgentData.getHighEntropyValues(['architecture', 'bitness', 'mobile', 'platform', 'platformVersion', 'uaFullVersion', 'wow64'])
+                delete userAgent.brands;
+                verify.browser = deepEqual(userAgent, cachedSVK.browser);
+                status.innerHTML += verify.browser ? "<br>浏览器验证符合" : "<br>浏览器验证不通过";
+                status.innerHTML += "<br>Steam用户名:" + cachedSVK.username;
+                document.getElementById("avatar").src = "https://steamapi.qinlili.bid/avatar?id=" + cachedSVK.userid;
+                let gameids = [];
+                cachedSVK.games.forEach(element => {
+                    gameids.push(element.appid);
+                });
+                status.innerHTML += "<br>已拥有游戏:" + gameids.toString();
+            }
+        })();
     </script>
 </body>
