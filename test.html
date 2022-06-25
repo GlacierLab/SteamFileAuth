@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>测试-SteamFileAuth</title>
+    <meta name="description" content="基于本地文件认证的Steam游戏验证方案" />
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport" />
+    <script src="https://npm.elemecdn.com/object-hash@3.0.0/dist/object_hash.js"></script>
+</head>
+
+<body>
+    <span id="status"></span>
+    <script>
+        let status = document.getElementById("status");
+        let searchParams = new URLSearchParams(document.location.search);
+        if (!localStorage.usedNonce || localStorage.usedNonce.length > 500) {
+            localStorage.usedNonce = ""
+        }
+        if (localStorage.usedNonce.indexOf(searchParams.get("nonce")) == -1) {
+            localStorage.usedNonce += "|" + searchParams.get("nonce");
+            let checkObject = {
+                svkauth: 1,
+                userid: searchParams.get("userid"),
+                appid: searchParams.get("appid"),
+                timestamp: Number(searchParams.get("timestamp")),
+                nonce: searchParams.get("nonce")
+            }
+            let sign = objectHash.sha1(checkObject);
+            if (sign == searchParams.get("sign")) {
+                status.innerHTML += "认证成功";
+            } else {
+                status.innerHTML += "认证失败";
+            }
+        } else {
+            status.innerHTML += "认证失败:重放攻击";
+        }
+    </script>
+</body>

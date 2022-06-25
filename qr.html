@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>测试-SteamFileAuth</title>
+    <meta name="description" content="基于本地文件认证的Steam游戏验证方案" />
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport" />
+    <script src="https://npm.elemecdn.com/@keeex/qrcodejs-kx/qrcode.min.js"></script>
+    <script src="https://npm.elemecdn.com/object-hash@3.0.0/dist/object_hash.js"></script>
+</head>
+
+<body>
+    <img id="avatar">
+    <span id="status"></span>
+    <input id="appid" type="number">
+    <button id="genBtn">生成</button>
+    <div id="qrcode"></div>
+    <script>
+        //https://segmentfault.com/a/1190000022913676
+        function deepEqual(object1, object2) {
+            const keys1 = Object.keys(object1);
+            const keys2 = Object.keys(object2);
+
+            if (keys1.length !== keys2.length) {
+                return false;
+            }
+
+            for (let index = 0; index < keys1.length; index++) {
+                const val1 = object1[keys1[index]];
+                const val2 = object2[keys2[index]];
+                const areObjects = isObject(val1) && isObject(val2);
+                if (areObjects && !deepEqual(val1, val2) ||
+                    !areObjects && val1 !== val2) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+        function isObject(object) {
+            return object != null && typeof object === 'object';
+        }
+
+        function getVideoCardInfo() {
+            const gl = document.createElement('canvas').getContext('webgl');
+            if (!gl) {
+                return false;
+            }
+            const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+            return debugInfo ? {
+                vendor: gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL),
+                renderer: gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL),
+            } : false;
+        };
+        let status = document.getElementById("status");
+        document.getElementById("genBtn").addEventListener("click", async () => {
+            if (localStorage.cachedSVK) {
+                let cachedSVK = JSON.parse(localStorage.cachedSVK);
+                let day = (Date.now() - cachedSVK.time) / 86400000;
+                let verify = {}
+                status.innerHTML += "检测到缓存的令牌...";
+                verify.time = (day < 14);
+                status.innerHTML += verify.time ? "<br>文件有效" : "<br>文件过期";
+                let currentGPU = getVideoCardInfo();
+                verify.GPU = deepEqual(currentGPU, cachedSVK.GPUinfo);
+                status.innerHTML += verify.GPU ? "<br>GPU验证符合" : "<br>GPU验证不通过";
+                let userAgent = await navigator.userAgentData.getHighEntropyValues(['architecture', 'bitness', 'mobile', 'platform', 'platformVersion', 'uaFullVersion', 'wow64'])
+                delete userAgent.brands;
+                verify.browser = deepEqual(userAgent, cachedSVK.browser);
+                status.innerHTML += verify.browser ? "<br>浏览器验证符合" : "<br>浏览器验证不通过";
+                status.innerHTML += "<br>Steam用户名:" + cachedSVK.username;
+                window.userid = cachedSVK.userid;
+                document.getElementById("avatar").src = "https://steamapi.qinlili.bid/avatar?id=" + cachedSVK.userid;
+                window.gameids = [];
+                cachedSVK.games.forEach(element => {
+                    gameids.push(element.appid);
+                });
+                status.innerHTML += "<br>已拥有游戏:" + gameids.toString();
+            } else {
+                alert("未找到缓存的授权请求");
+            };
+            let appid = document.getElementById("appid").value;
+            if (window.gameids.includes(Number(appid))) {
+                let signObject = {
+                    svkauth: 1,
+                    userid: window.userid,
+                    appid: appid.toString(),
+                    timestamp: Date.now(),
+                    nonce: "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (function (e) {
+                        var t = 16 * Math.random() | 0;
+                        return ("x" == e ? t : 3 & t | 8).toString(16)
+                    }))
+                };
+                signObject.sign = objectHash.sha1(signObject);
+                let qrcode = new QRCode(document.getElementById("qrcode"), {
+                    text: btoa(new URLSearchParams(signObject).toString()),
+                    width: 512,
+                    height: 512,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.H
+                })
+            } else {
+                alert("未拥有的游戏");
+            }
+        })
+    </script>
+</body>
