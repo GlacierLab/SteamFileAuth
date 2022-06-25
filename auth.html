@@ -9,12 +9,14 @@
     <script crossorigin="anonymous"
         integrity="sha512-EAKzSKex+PXC0U9OG13r1059ysjrjkJEpZoONCnZa0mBROY28iBOOxZSErUVw1LzLr2+U5PhR7zPCPKidUVJqg=="
         src="https://lib.baomitu.com/pako/2.0.4/pako.min.js"></script>
+    <script src="https://npm.elemecdn.com/object-hash@3.0.0/dist/object_hash.js"></script>
 </head>
 
 <body>
     <H1>认证</H1>
     <input type="file" id="svkSelector">
     <img id="avatar">
+    <button id="grantBtn" style="display:none;">允许授权</button>
     <H6 id="status"></H6>
     <script>
         //https://segmentfault.com/a/1190000022913676
@@ -54,6 +56,7 @@
             } : false;
         };
         let status = document.getElementById("status");
+        let searchParams = new URLSearchParams(document.location.search);
         document.getElementById("svkSelector").addEventListener("change", (e) => {
             let target = e.target || e.srcElement;
             let file = target.files[0];
@@ -78,14 +81,49 @@
                 if (verify.time && verify.browser && verify.GPU) {
                     localStorage.cachedSVK = SVKtext;
                 }
+                window.userid = parsedSVK.userid;
                 document.getElementById("avatar").src = "https://steamapi.qinlili.bid/avatar?id=" + parsedSVK.userid;
-                let gameids = [];
+                window.gameids = [];
                 parsedSVK.games.forEach(element => {
                     gameids.push(element.appid);
                 });
                 status.innerHTML += "<br>已拥有游戏:" + gameids.toString();
+                showGrant();
             }
             reader.readAsArrayBuffer(file);
+        });
+        const showGrant = () => {
+            window.appid = searchParams.get("appid");
+            if (appid) {
+                status.innerHTML += "<br>正在请求授权的appid:" + appid;
+                if (window.gameids.includes(Number(appid))) {
+                    status.innerHTML += "<br>已找到授权信息";
+                    document.getElementById("grantBtn").style.display = "block";
+                } else {
+                    status.innerHTML += "<br>授权信息不存在";
+                }
+            } else {
+                status.innerHTML += "<br>未找到请求授权的appid";
+            }
+        }
+        document.getElementById("grantBtn").addEventListener("click", () => {
+            let authUrl = searchParams.get("authurl");
+            if (authUrl) {
+                let signObject = {
+                    svkauth: 1,
+                    userid: window.userid,
+                    appid: window.appid,
+                    timestamp: Date.now(),
+                    nonce: "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (function (e) {
+                        var t = 16 * Math.random() | 0;
+                        return ("x" == e ? t : 3 & t | 8).toString(16)
+                    }))
+                };
+                signObject.sign = objectHash.sha1(signObject);
+                location.href = authUrl + "?" + new URLSearchParams(signObject).toString();
+            } else {
+                alert("授权地址不存在！");
+            }
         });
         (async () => {
             if (localStorage.cachedSVK) {
@@ -103,13 +141,15 @@
                 verify.browser = deepEqual(userAgent, cachedSVK.browser);
                 status.innerHTML += verify.browser ? "<br>浏览器验证符合" : "<br>浏览器验证不通过";
                 status.innerHTML += "<br>Steam用户名:" + cachedSVK.username;
+                window.userid = cachedSVK.userid;
                 document.getElementById("avatar").src = "https://steamapi.qinlili.bid/avatar?id=" + cachedSVK.userid;
-                let gameids = [];
+                window.gameids = [];
                 cachedSVK.games.forEach(element => {
                     gameids.push(element.appid);
                 });
                 status.innerHTML += "<br>已拥有游戏:" + gameids.toString();
-            }
+                showGrant();
+            };
         })();
     </script>
 </body>
